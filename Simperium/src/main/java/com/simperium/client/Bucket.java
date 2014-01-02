@@ -9,17 +9,12 @@
  * Simperium creates a Bucket instance that is backed by a Channel. The Channel
  * takes care of the network operations by communicating with the WebSocketManager.
  *
- * TODO: A bucket should be able to be queried: "give me all your entities". This
- * potentially needs to be flexible to allow storage mechanisms way to extend how
- * things can be queried.
- *
  * Buckets should also provide a way for other objects to listen for when entities
  * get added, updated or removed due to operations coming in from the network.
  *
  * A bucket should also provide an interface that can listen to local changes so
  * that the channel can see when entities are changed on the client and push them
  * out to Simperium.
- *
  */
 
 package com.simperium.client;
@@ -44,7 +39,16 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 
 public class Bucket<T extends Syncable> {
-    
+
+    public interface ObjectLoader<T extends Syncable> {
+        public void onLoadObject(String key, T object);
+        public void onObjectMissing(String key);
+    }
+
+    public interface QueryLoader<T extends Syncable> {
+        public void onLoadQuery(ObjectCursor<T> cursor);
+    }
+
     public interface Channel {
         public Change queueLocalChange(Syncable object);
         public Change queueLocalDeletion(Syncable object);
@@ -203,6 +207,11 @@ public class Bucket<T extends Syncable> {
             @Override
             public void run(){
                 Boolean modified = object.isModified();
+
+                if (modified) {
+                    object.onBeforeSync();
+                }
+
                 storage.save(object, schema.indexesFor(object));
 
                 channel.queueLocalChange(object);
@@ -339,6 +348,23 @@ public class Bucket<T extends Syncable> {
     }
 
     /**
+     * Find all objects async
+     */
+    public void allObjects(final QueryLoader<T> loader) {
+
+        executeAsync(new Runnable() {
+
+            @Override
+            public void run() {
+                loader.onLoadQuery(allObjects());
+            }
+
+        });
+
+    }
+
+
+    /**
      * Search using a query
      */
     public ObjectCursor<T> searchObjects(Query<T> query){
@@ -346,8 +372,24 @@ public class Bucket<T extends Syncable> {
     }
 
     /**
-     * Support cancelation
+     * Search async
      */
+    public void searchObjects(final Query<T> query, final QueryLoader<T> loader){
+
+        executeAsync(new Runnable() {
+
+            @Override
+            public void run() {
+
+                ObjectCursor<T> results = searchObjects(query);
+                loader.onLoadQuery(results);
+
+            }
+
+        });
+
+    }
+
     /**
      * Build a query for this object
      */
@@ -380,6 +422,37 @@ public class Bucket<T extends Syncable> {
         object.setGhost(ghost);
         cache.put(key, object);
         return object;
+    }
+
+    /**
+     * Get async
+     */
+    public void get(final String key, final ObjectLoader<T> loader) {
+
+        T object = cache.get(key);
+
+        // if the object was freshly cached, just send it back
+        if (object != null) {
+            loader.onLoadObject(key, object);
+            return;
+        }
+
+        executeAsync(new Runnable() {
+
+            @Override
+            public void run() {
+
+                try {
+                    T object = get(key);
+                    loader.onLoadObject(key, object);
+                } catch (BucketObjectMissingException e) {
+                    loader.onObjectMissing(key);
+                }
+
+            }
+
+        });
+
     }
 
     /**

@@ -152,4 +152,81 @@ public class BucketTest extends TestCase {
 
     }
 
+    public void testAsyncQuery()
+    throws Exception {
+
+        createNotes(10, mBucket);
+
+        MockQueryLoader loader = new MockQueryLoader();
+
+        mBucket.allObjects(loader);
+
+        assertTrue(loader.loaded);
+
+    }
+
+    public void testAsyncGetObject()
+    throws Exception {
+
+        Note note = mBucket.newObject("hello");
+        note.setTitle("Hello World");
+        note.save();
+
+        MockObjectLoader loader = new MockObjectLoader();
+
+        mBucket.get("hello", loader);
+
+        assertTrue(loader.loaded);
+        assertFalse(loader.missing);
+    }
+
+    public void testAsyncObjectMissing()
+    throws Exception {
+        MockObjectLoader loader = new MockObjectLoader();
+        mBucket.get("hello", loader);
+
+        assertFalse(loader.loaded);
+        assertTrue(loader.missing);
+
+    }
+
+    class MockObjectLoader implements Bucket.ObjectLoader<Note> {
+
+        public String key;
+        public boolean loaded = false;
+        public boolean missing = false;
+
+        @Override
+        public void onLoadObject(String key, Note note) {
+            this.key = key;
+            loaded = true;
+        }
+
+        @Override
+        public void onObjectMissing(String key) {
+            this.key = key;
+            missing = true;
+        }
+
+    }
+
+    class MockQueryLoader implements Bucket.QueryLoader<Note> {
+
+        public boolean loaded = false;
+
+        @Override
+        public void onLoadQuery(Bucket.ObjectCursor<Note> cursor) {
+            loaded = true;
+        }
+
+    }
+
+    public static void createNotes(int count, Bucket<Note> bucket) {
+        for (int i=0; i<count; i++) {
+            Note note = bucket.newObject();
+            note.setTitle("Note " + i);
+            note.save();
+        }
+    }
+
 }

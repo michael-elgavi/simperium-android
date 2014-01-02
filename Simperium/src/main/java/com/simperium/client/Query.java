@@ -284,6 +284,14 @@ public class Query<T extends Syncable> {
         return bucket.searchObjects(this);
     }
 
+    public void execute(Bucket.QueryLoader<T> loader) {
+        if (bucket == null) {
+            throw(new RuntimeException("Tried executing a query without a bucket"));
+        }
+
+        bucket.searchObjects(this, loader);
+    }
+
     public int count(){
         if (bucket == null){
             throw(new RuntimeException("Tried executing a query wihtout a bucket"));

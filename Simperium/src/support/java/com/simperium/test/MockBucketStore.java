@@ -70,7 +70,7 @@ public class MockBucketStore<T extends Syncable> implements StorageProvider.Buck
      * Search
      */
     @Override
-    public Bucket.ObjectCursor<T> search(Query query){
+    public Bucket.ObjectCursor<T> search(Query<T> query){
         Log.w(TAG, "Custom queries not supported");
         return all();
     }
@@ -79,7 +79,7 @@ public class MockBucketStore<T extends Syncable> implements StorageProvider.Buck
      * Count
      */
     @Override
-    public int count(Query query){
+    public int count(Query<T> query){
         Log.w(TAG, "Custom queries not supported");
         return objects.size();
     }

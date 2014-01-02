@@ -11,6 +11,11 @@ public abstract class Syncable implements Diffable {
     private Ghost ghost;
     protected Bucket bucket;
 
+    /**
+     * Object was modified and will be synced.
+     */
+    public void onBeforeSync() { }
+
     public Integer getVersion(){
         return ghost.getVersion();
     }
